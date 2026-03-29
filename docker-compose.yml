@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: web_project_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: web_project
+    volumes:
+      - db_data:/var/lib/mysql
+      # Drop your schema SQL file here to auto-initialise on first run:
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: churn_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-rootpassword}@db:3306/web_project
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./churn_model.pkl:/app/churn_model.pkl:ro
+
+volumes:
+  db_data:

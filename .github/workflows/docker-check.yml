@@ -1,0 +1,23 @@
+name: Docker Build Check
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: actions/setup-buildx-action@v3
+
+      - name: Build and load
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ml_model_logic
+          file: ./ml_model_logic/Dockerfile
+          tags: crm-ai:test
+          outputs: type=docker,dest=/tmp/myimage.tar
