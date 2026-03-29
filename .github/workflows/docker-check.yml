@@ -17,7 +17,7 @@ jobs:
       - name: Build and load
         uses: docker/build-push-action@v5
         with:
-          context: ./ml_model_logic
-          file: ./ml_model_logic/Dockerfile
+          context: ./
+          file: ./Dockerfile
           tags: crm-ai:test
           outputs: type=docker,dest=/tmp/myimage.tar
