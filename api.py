@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine,text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -58,19 +58,19 @@ def bulk_predict():
     try:
         # FORCE the connection to use web_project
         with engine.connect() as connection:
-            connection.execute("USE web_project") # This is the magic line
+            connection.execute(text("""USE web_project"""))
             
-            query = """
-                SELECT
-                    COALESCE(c.total_spent, 0) as total_spent,
-                    COALESCE(DATEDIFF(CURDATE(), c.last_purchase_date), 365) as days_since_last_purchase,
-                    COUNT(s.id) as purchase_count,
-                    COALESCE(AVG(s.total_amount), 0) as avg_order_value
-                FROM clients c
-                LEFT JOIN sales s ON c.id = s.client_id
-                GROUP BY c.id
-            """
-            df = pd.read_sql(query, connection) # Use 'connection' here instead of 'engine'
+            query = text("""
+            SELECT
+                COALESCE(c.total_spent, 0) as total_spent,
+                COALESCE(DATEDIFF(CURDATE(), c.last_purchase_date), 365) as days_since_last_purchase,
+                COUNT(s.id) as purchase_count,
+                COALESCE(AVG(s.total_amount), 0) as avg_order_value
+            FROM web_project.clients c
+            LEFT JOIN web_project.sales s ON c.id = s.client_id
+            GROUP BY c.id
+            """)
+            df = pd.read_sql(query, connection) 
 
         if df.empty:
             return {"success": True, "at_risk_count": 0}
