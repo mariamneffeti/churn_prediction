@@ -1,21 +1,29 @@
-from fastapi import FastAPI
 import os
 import joblib
 import numpy as np
 import pandas as pd
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+
 load_dotenv()
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
+
+DB_URL = (
+    f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
+    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+)
+engine = create_engine(
+    DB_URL,
+    pool_size=5,
+    max_overflow=2,
+    pool_timeout=10,
+    pool_recycle=1800,
+    connect_args={"connect_timeout": 5}
+)
 
 app = FastAPI()
-from fastapi.middleware.cors import CORSMiddleware
-DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-engine = create_engine(DATABASE_URL)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 model = joblib.load("churn_model.pkl")
+
 
 @app.post("/predict")
 def predict(data: dict):
@@ -42,23 +52,21 @@ def predict(data: dict):
         "risk_score": float(probability)
     }
 
-from sqlalchemy import create_engine
 
 @app.get("/bulk_predict")
 def bulk_predict():
     try:
-        
         query = """
-            SELECT 
-                COALESCE(c.total_spent, 0) as total_spent, 
+            SELECT
+                COALESCE(c.total_spent, 0) as total_spent,
                 COALESCE(DATEDIFF(CURDATE(), c.last_purchase_date), 365) as days_since_last_purchase,
-                COUNT(s.id) as purchase_count, 
+                COUNT(s.id) as purchase_count,
                 COALESCE(AVG(s.total_amount), 0) as avg_order_value
-            FROM web_project.clients c 
-            LEFT JOIN web_project.sales s ON c.id = s.client_id 
+            FROM clients c
+            LEFT JOIN sales s ON c.id = s.client_id
             GROUP BY c.id
         """
-        
+
         df = pd.read_sql(query, engine)
 
         if df.empty:
@@ -66,12 +74,19 @@ def bulk_predict():
 
         feature_cols = ['total_spent', 'days_since_last_purchase', 'purchase_count', 'avg_order_value']
         features = df[feature_cols].fillna(0)
-        
+
         predictions = model.predict(features)
-        at_risk_count = int(sum(predictions)) 
+        at_risk_count = int(sum(predictions))
 
         return {"success": True, "at_risk_count": at_risk_count}
 
     except Exception as e:
         print(f"SQL Error: {e}")
         return {"success": False, "error": str(e)}
+@app.get("/debug")
+def debug():
+    return {
+        "DB_USER": os.getenv("DB_USER"),
+        "DB_HOST": os.getenv("DB_HOST"),
+        "DB_NAME": os.getenv("DB_NAME"),
+    }
