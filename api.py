@@ -56,18 +56,21 @@ def predict(data: dict):
 @app.get("/bulk_predict")
 def bulk_predict():
     try:
-        query = """
-            SELECT
-                COALESCE(c.total_spent, 0) as total_spent,
-                COALESCE(DATEDIFF(CURDATE(), c.last_purchase_date), 365) as days_since_last_purchase,
-                COUNT(s.id) as purchase_count,
-                COALESCE(AVG(s.total_amount), 0) as avg_order_value
-            FROM clients c
-            LEFT JOIN sales s ON c.id = s.client_id
-            GROUP BY c.id
-        """
-
-        df = pd.read_sql(query, engine)
+        # FORCE the connection to use web_project
+        with engine.connect() as connection:
+            connection.execute("USE web_project") # This is the magic line
+            
+            query = """
+                SELECT
+                    COALESCE(c.total_spent, 0) as total_spent,
+                    COALESCE(DATEDIFF(CURDATE(), c.last_purchase_date), 365) as days_since_last_purchase,
+                    COUNT(s.id) as purchase_count,
+                    COALESCE(AVG(s.total_amount), 0) as avg_order_value
+                FROM clients c
+                LEFT JOIN sales s ON c.id = s.client_id
+                GROUP BY c.id
+            """
+            df = pd.read_sql(query, connection) # Use 'connection' here instead of 'engine'
 
         if df.empty:
             return {"success": True, "at_risk_count": 0}
