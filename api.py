@@ -56,7 +56,6 @@ def predict(data: dict):
 @app.get("/bulk_predict")
 def bulk_predict():
     try:
-        # FORCE the connection to use web_project
         with engine.connect() as connection:
             connection.execute(text("""USE web_project"""))
             
@@ -74,18 +73,18 @@ def bulk_predict():
 
         if df.empty:
             return {"success": True, "at_risk_count": 0}
+        probabilities = model.predict_proba(df[feature_cols])[:, 1]
+        threshold = 0.7
+        at_risk_count = int(sum(probabilities > threshold))
 
-        feature_cols = ['total_spent', 'days_since_last_purchase', 'purchase_count', 'avg_order_value']
-        features = df[feature_cols].fillna(0)
-
-        predictions = model.predict(features)
-        at_risk_count = int(sum(predictions))
-
-        return {"success": True, "at_risk_count": at_risk_count}
-
+        return {
+            "success": True, 
+            "at_risk_count": at_risk_count
+        }
     except Exception as e:
         print(f"SQL Error: {e}")
         return {"success": False, "error": str(e)}
+
 @app.get("/debug")
 def debug():
     return {
