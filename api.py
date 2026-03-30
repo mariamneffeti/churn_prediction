@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_URL = (
-    f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
+    f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
     f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 )
 engine = create_engine(
@@ -90,3 +90,6 @@ def debug():
         "DB_HOST": os.getenv("DB_HOST"),
         "DB_NAME": os.getenv("DB_NAME"),
     }
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "CRM AI is running"}
